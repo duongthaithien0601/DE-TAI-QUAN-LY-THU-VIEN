@@ -1,4 +1,4 @@
-﻿//#pragma once
+﻿#pragma once
 //// dsmuontra.h
 //// Chuc nang Muon / Tra sach va cac ham ho tro UI.
 ////
