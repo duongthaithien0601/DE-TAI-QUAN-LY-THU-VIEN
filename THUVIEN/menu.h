@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <iostream>
 #include <string>
 #include <limits>
@@ -58,10 +58,12 @@ inline void menu_doc_gia(DocGiaNode*& root, std::vector<DauSach*>& dsArr) {
             uc_dg_them_doc_gia(root);
         }
         else if (ch == 2) {
-            uc_dg_xoa_doc_gia(root);
+            // SỬA: gọi đúng tên hàm xóa theo mã
+            uc_dg_xoa_theo_ma(root);
         }
         else if (ch == 3) {
-            bool changed = uc_dg_cap_nhat(root);
+            // SỬA: gọi đúng tên hàm cập nhật theo mã
+            bool changed = uc_dg_cap_nhat_theo_ma(root);
             if (changed) {
                 if (save_all_data(dsArr, root)) {
                     std::cout << "Da cap nhat va luu du lieu ra file.\n";
@@ -307,4 +309,3 @@ inline void run_menu(std::vector<DauSach*>& dsArr, DocGiaNode*& root) {
         }
     }
 }
-

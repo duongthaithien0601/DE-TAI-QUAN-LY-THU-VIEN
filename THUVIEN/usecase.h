@@ -1,22 +1,4 @@
-﻿#pragma once
-
-// File: usecase.h
-// Use-case giao tiep UI (console) cho NHÓM ĐỌC GIẢ:
-//  - Them doc gia (ma the tu sinh)
-//  - Xoa doc gia
-//  - In danh sach
-//  - CAP NHAT doc gia (theo yeu cau moi)
-//
-// Yeu cau moi cho "Cap nhat doc gia":
-//  - Nhap MA THE (khong thay doi).
-//  - Cho phep thay doi: ho, ten, gioi tinh, trang thai the.
-//  - Khong hien gia tri hien tai; nhap lan luot, de trong => khong doi.
-//  - Sau khi nhap xong, hoi xac nhan. Dong y => cap nhat RAM va tra ve true.
-//  - Menu se luu file ngay khi ham tra true.
-//
-// Phu thuoc: cautruc.h, dsdocgia.h
-
-#include <iostream>
+﻿#include <iostream>
 #include <string>
 #include <limits>
 #include <algorithm>
@@ -41,19 +23,15 @@ static inline int prompt_trang_thai_the() {
         if (s == "0" || s == "1") {
             return (s == "1") ? 1 : 0;
         }
-        std::cout << "Gia tri khong hop le. Moi nhap lai!\n";
+        std::cout << "Chi nhap 0 hoac 1!\n";
     }
 }
 
 static inline std::string prompt_gioi_tinh() {
     while (true) {
-        std::string s = prompt_line("Nhap gioi tinh (Nam/Nu): ");
-        std::string up = to_upper_no_accents(s);
-        if (up == "NAM") {
-            return "Nam";
-        }
-        if (up == "NU") {
-            return "Nu";
+        std::string s = to_upper_no_accents(prompt_line("Nhap gioi tinh (Nam/Nu): "));
+        if (s == "NAM" || s == "NU") {
+            return (s == "NU") ? "Nu" : "Nam";
         }
         std::cout << "Chi chap nhan 'Nam' hoac 'Nu'. Moi nhap lai!\n";
     }
@@ -69,29 +47,62 @@ static inline void pause_enter() {
 static inline void uc_dg_them_doc_gia(DocGiaNode*& root) {
     std::cout << "\n-- Them doc gia --\n";
 
+    // Cap truoc ma the (tu sinh) va hien cho nguoi dung giong cach them Dau sach
+    int maThe = gen_ma_the_unique(root);
+    std::cout << "Ma the duoc cap: " << maThe << "\n";
+
+    // Nhap thong tin
     std::string ho = prompt_line("Nhap ho: ");
     std::string ten = prompt_line("Nhap ten: ");
     std::string phai = prompt_gioi_tinh();
     int trangThai = prompt_trang_thai_the();
 
-    int maThe = them_doc_gia_auto(root, ho, ten, phai, trangThai);
+    // Chen vao cay voi ma the vua cap
+    DocGia dg;
+    dg.maThe = maThe;
+    dg.ho = trim(ho);
+    dg.ten = trim(ten);
+    {
+        std::string up = to_upper_no_accents(phai);
+        dg.phai = (up == "NU" ? "Nu" : "Nam");
+    }
+    dg.trangThaiThe = (trangThai == 1 ? 1 : 0);
+    dg.mtHead = NULL;
+    insert_doc_gia(root, dg);
 
-    std::cout << "Da them doc gia moi.\n";
-    std::cout << "Ma the: " << maThe << "\n";
-    std::cout << "Ho: " << ho << "\n";
-    std::cout << "Ten: " << ten << "\n";
-    std::cout << "Gioi tinh: " << phai << "\n";
-    std::cout << "Trang thai the: " << (trangThai == 1 ? "1" : "0") << "\n";
-
+    std::cout << "Da them doc gia thanh cong.\n";
     pause_enter();
 }
 
-// ============= USE-CASE: IN DANH SACH DOC GIA =============
+// ============= USE-CASE: XOA DOC GIA (neu khong con muon) =========
+static inline void uc_dg_xoa_theo_ma(DocGiaNode*& root) {
+    std::cout << "\n-- Xoa doc gia --\n";
+    std::string s = prompt_line("Nhap ma the: ");
+    int ma = 0;
+    try { ma = std::stoi(s); }
+    catch (...) { ma = -1; }
+
+    if (ma <= 0) {
+        std::cout << "Ma the khong hop le!\n";
+        pause_enter();
+        return;
+    }
+    if (xoa_doc_gia_if_no_borrowing(root, ma)) {
+        std::cout << "Da xoa doc gia.\n";
+    }
+    else {
+        std::cout << "Khong the xoa (khong ton tai hoac dang con muon sach).\n";
+    }
+    pause_enter();
+}
+
+// ============= USE-CASE: IN DANH SACH DOC GIA (Theo Ten + Ho) ======
 static inline void uc_dg_in_theo_ten_ho(DocGiaNode* root) {
     std::vector<DocGia*> v;
     duyet_LNR_luu_mang(root, v);
     std::sort(v.begin(), v.end(), [](const DocGia* a, const DocGia* b) {
-        return key_ten_ho(*a) < key_ten_ho(*b);
+        if (a->ten != b->ten) return a->ten < b->ten;
+        return a->ho < b->ho;
         });
 
     std::cout << "\n--- DANH SACH DOC GIA (Theo Ten + Ho) ---\n";
@@ -129,67 +140,31 @@ static inline void uc_dg_in_theo_ma_the(DocGiaNode* root) {
     pause_enter();
 }
 
-// ============= USE-CASE: XOA DOC GIA (chi khi khong con muon) =============
-static inline void uc_dg_xoa_doc_gia(DocGiaNode*& root) {
-    std::cout << "\n-- Xoa doc gia --\n";
+// ============= USE-CASE: CAP NHAT DOC GIA ==========================
+static inline bool uc_dg_cap_nhat_theo_ma(DocGiaNode*& root) {
+    std::cout << "\n-- Cap nhat doc gia --\n";
     std::string s = prompt_line("Nhap ma the: ");
     int ma = 0;
     try { ma = std::stoi(s); }
-    catch (...) { std::cout << "Ma the khong hop le.\n"; pause_enter(); return; }
+    catch (...) { ma = -1; }
 
     DocGiaNode* p = tim_node_doc_gia(root, ma);
     if (p == NULL) {
-        std::cout << "Khong tim thay doc gia.\n";
-        pause_enter();
-        return;
-    }
-    if (dem_mt_dang_muon(p->info) > 0) {
-        std::cout << "Doc gia dang con sach muon -> KHONG THE XOA.\n";
-        pause_enter();
-        return;
-    }
-
-    std::cout << "Xac nhan xoa ma the " << ma << " (y/n): ";
-    std::string ans;
-    std::getline(std::cin, ans);
-    if (!ans.empty() && (ans[0] == 'y' || ans[0] == 'Y')) {
-        bool ok = xoa_doc_gia_if_no_borrowing(root, ma);
-        if (ok) { std::cout << "Da xoa doc gia.\n"; }
-        else { std::cout << "Khong the xoa.\n"; }
-    }
-    else {
-        std::cout << "Da huy.\n";
-    }
-    pause_enter();
-}
-
-// ============= USE-CASE: CAP NHAT DOC GIA (THEO MA THE) =============
-// Tra ve true neu co cap nhat de menu luu file ngay.
-static inline bool uc_dg_cap_nhat(DocGiaNode*& root) {
-    std::cout << "\n-- Cap nhat doc gia --\n";
-    std::string sMa = prompt_line("Nhap MA THE: ");
-    int ma = 0;
-    try { ma = std::stoi(sMa); }
-    catch (...) { std::cout << "Ma the khong hop le.\n"; pause_enter(); return false; }
-
-    DocGiaNode* p = tim_node_doc_gia(root, ma);
-    if (p == NULL) {
-        std::cout << "Khong tim thay doc gia.\n";
+        std::cout << "Khong ton tai ma the nay.\n";
         pause_enter();
         return false;
     }
 
-    // Nhap lan luot, cho phep bo trong
-    std::string inHo = prompt_line("Nhap HO (bo trong neu khong doi): ");
-    std::string inTen = prompt_line("Nhap TEN (bo trong neu khong doi): ");
-    std::string inPhai = prompt_line("Nhap GIOI TINH (Nam/Nu) (bo trong neu khong doi): ");
-    std::string inTT = prompt_line("Nhap TRANG THAI THE (0/1) (bo trong neu khong doi): ");
+    std::cout << "Nhap thong tin moi (de trong neu khong doi):\n";
+    std::string inHo = prompt_line("Ho: ");
+    std::string inTen = prompt_line("Ten: ");
+    std::string inPhai = prompt_line("Gioi tinh (Nam/Nu): ");
+    std::string inTT = prompt_line("Trang thai the (0/1): ");
 
-    // Hoi xac nhan truoc khi ap dung
-    std::cout << "Xac nhan cap nhat (y/n): ";
-    std::string ans;
-    std::getline(std::cin, ans);
-    if (ans.empty() || (ans[0] != 'y' && ans[0] != 'Y')) {
+    std::cout << "Xac nhan cap nhat? (y/n): ";
+    std::string ok;
+    std::getline(std::cin, ok);
+    if (ok.empty() || (ok[0] != 'y' && ok[0] != 'Y')) {
         std::cout << "Da huy cap nhat.\n";
         pause_enter();
         return false;
